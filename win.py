@@ -3,8 +3,15 @@ import tkinter as tk
 from tkinter import ttk
 import serialport
 import serial
-#import time
+import time
 import threading
+
+def timestamp():
+    currtime = int(time.time()*1000%1000)
+    currtime = '%03d' % currtime
+    strt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    return str((strt +':'+str(currtime))) 
+
 class window:
     def __init__(self):
         self.root = tk.Tk()
@@ -28,11 +35,11 @@ class window:
         self.setting_area(f_left,self.comport)
         self.rtxt,self.stxt,self.sbutton = self.data_area(f_right)
         self.default_value()
-        self.rtxt.insert("end", 'para'+'\n')
+        self.rtxt.insert("end", 'para'+'\r\n')
     
  
     def default_value(self):
-        comport_select.current(2)
+        comport_select.current(0)
         bdr_setting.current(9)
         check_bit.current(0)
         data_bit.current(3)
@@ -103,13 +110,25 @@ class window:
     def send_data(self):
         #print(self.stxt.get('0.0','end'))
         str1 = self.stxt.get('0.0','end')
-        str1 = str1[0:-1] + '\r'
+        sendstr = ''
+        if send_dis.get() == 1:
+            sendstr = str1.encode()
+            #print(sendstr[0:1])
+            #for i in str1:
+            #    sendstr[i] = hex(ord(i))
+            #    print(str1[i])
+        if send_at_mode.get() == 1:
+            #add carriage return mark for at command
+            sendstr = str1[0:-1] + '\r'
+            #print(sendstr)
+  
+
         #for i in str1: 
         #   print('%x ' %ord(i))
         #str1 = str1[0:-2]+ '\r'
         #str1 = 'ati\r'
         #print()
-        self.comport.ser.write(str1.encode('utf-8'))
+        self.comport.ser.write(sendstr.encode('utf-8'))
         #return 
     def recv_data(self) :
         print('recv thread starting...')
@@ -118,7 +137,17 @@ class window:
             if len(rec_data) != 0 :
                 #print( 'recv len:%d\n %s' %(len(rec_data) ,str(rec_data, encoding = "utf-8")))
                 #str1 = rec_data+'\n'
-                self.rtxt.insert("end", rec_data)
+                if recv_log_mode.get() == 1 :
+                    
+                    self.rtxt.insert("end", '['+timestamp()+']','tag1')
+
+                #else :
+                print(str(rec_data, encoding = "utf-8").split('\r'))
+                for i in str(rec_data, encoding = "utf-8").split('\r'):
+                    if i != '' and i != '\r' :
+                        self.rtxt.insert("end", i)
+                #self.rtxt.insert("end", str(rec_data, encoding = "utf-8"))
+                self.rtxt.see('end')
 
 
     def recv_update(self,para):
@@ -137,11 +166,11 @@ class window:
 
     def send_update(self,para):
         if para == 'send_dis':
-            print('send_dis')
+            print(send_dis.get())
         elif para == 'send_convert':
             print('send_convert')
         elif para == 'send_at_mode':
-            print('send_at_mode')
+            print(send_at_mode.get())
         elif para == 'send_addtion':
             print('send_addtion')
         elif para == 'send_file':
@@ -228,15 +257,16 @@ class window:
         recv_dis = tk.IntVar()
         recv_dis.set(0)
         recv_log_mode = tk.IntVar()
+        recv_log_mode.set(1)
         recv_line_feed = tk.IntVar()
         recv_hide_data = tk.IntVar()
         recv_save_to_file = tk.IntVar()
         tk.Radiobutton(frame, variable=recv_dis, bg='FloralWhite',value='0', text='ASCII',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=0,padx=14,pady=5,sticky=tk.E+tk.W)
         tk.Radiobutton(frame, variable=recv_dis,bg='FloralWhite', value='1', text='HEX',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=1,padx=14,sticky=tk.E+tk.W)
-        tk.Checkbutton(frame,text = "log mode",bg='FloralWhite', variable = recv_log_mode,onvalue = 1,offvalue = 0,command = lambda:self.recv_update('recv_log_mode')).grid(row=1, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "auto line feed",bg='FloralWhite', variable = recv_line_feed,onvalue = 1,offvalue = 0,command = lambda:self.recv_update('recv_line_feed')).grid(row=2, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "Hide recv data",bg='FloralWhite', variable = recv_hide_data,onvalue = 1,offvalue = 0,command = lambda:self.recv_update('recv_hide_data')).grid(row=3, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "Save to file",bg='FloralWhite', variable = recv_save_to_file,onvalue = 1,offvalue = 0,command = lambda:self.recv_update('recv_save_to_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
+        tk.Checkbutton(frame,text = "log mode",bg='FloralWhite', variable = recv_log_mode,command = lambda:self.recv_update('recv_log_mode')).grid(row=1, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
+        tk.Checkbutton(frame,text = "auto line feed",bg='FloralWhite', variable = recv_line_feed,command = lambda:self.recv_update('recv_line_feed')).grid(row=2, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
+        tk.Checkbutton(frame,text = "Hide recv data",bg='FloralWhite', variable = recv_hide_data,command = lambda:self.recv_update('recv_hide_data')).grid(row=3, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
+        tk.Checkbutton(frame,text = "Save to file",bg='FloralWhite', variable = recv_save_to_file,command = lambda:self.recv_update('recv_save_to_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
 
     # send setting
     def send_setting(self,frame):
@@ -245,17 +275,18 @@ class window:
         send_dis.set(0)
         send_convert = tk.IntVar()
         send_at_mode = tk.IntVar()
+        send_at_mode.set(1)
         send_addtion = tk.IntVar()
         send_file = tk.IntVar()
         send_periodic = tk.IntVar()
         #send_mode.set('1')
         tk.Radiobutton(frame, variable=send_dis,bg='FloralWhite', value='0', text='ASCII',command = lambda:self.send_update('send_dis')).grid(row=0, column=0,padx=14,sticky=tk.E+tk.W)
         tk.Radiobutton(frame, variable=send_dis,bg='FloralWhite', value='1', text='HEX',command = lambda:self.send_update('send_dis')).grid(row=0, column=1,padx=14,columnspan=2,sticky=tk.E+tk.W)
-        tk.Checkbutton(frame,text = "convert",bg='FloralWhite', variable = send_convert,onvalue = 1, offvalue = 0,command = lambda:self.send_update('send_convert')).grid(row=1, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        tk.Checkbutton(frame,text = "AT mode",bg='FloralWhite', variable = send_at_mode,onvalue = 1, offvalue = 0,command = lambda:self.send_update('send_at_mode')).grid(row=2, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        tk.Checkbutton(frame,text = "add addtion",bg='FloralWhite', variable = send_addtion,onvalue = 1, offvalue = 0,command = lambda:self.send_update('send_addtion')).grid(row=3, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        tk.Checkbutton(frame,text = "open file",bg='FloralWhite', variable = send_file,onvalue = 1, offvalue = 0,command = lambda:self.send_update('send_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        tk.Checkbutton(frame,text = "period",bg='FloralWhite', variable = send_periodic,onvalue = 1, offvalue = 0,command = lambda:self.send_update('send_periodic')).grid(row=5, column=0,padx=5,pady=3,sticky=tk.W)
+        tk.Checkbutton(frame,text = "convert",bg='FloralWhite', variable = send_convert,command = lambda:self.send_update('send_convert')).grid(row=1, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
+        tk.Checkbutton(frame,text = "AT mode",bg='FloralWhite', variable = send_at_mode,command = lambda:self.send_update('send_at_mode')).grid(row=2, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
+        tk.Checkbutton(frame,text = "add addtion",bg='FloralWhite', variable = send_addtion,command = lambda:self.send_update('send_addtion')).grid(row=3, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
+        tk.Checkbutton(frame,text = "open file",bg='FloralWhite', variable = send_file,command = lambda:self.send_update('send_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
+        tk.Checkbutton(frame,text = "period",bg='FloralWhite', variable = send_periodic,command = lambda:self.send_update('send_periodic')).grid(row=5, column=0,padx=5,pady=3,sticky=tk.W)
         tk.Entry(frame,width = 5).grid(row=5,column=1,sticky=tk.E)
         tk.Label(frame,bg='FloralWhite',text = 'ms').grid(row=5,column=2,sticky=tk.W)
         tk.Label(frame,bg='FloralWhite').grid(row=6,column=0,columnspan=3,sticky=tk.NS)
@@ -280,7 +311,12 @@ class window:
         f_data_rwin = tk.LabelFrame(frame,text='Data receive',bg='FloralWhite',bd=4,relief=tk.RIDGE)
         f_data_rwin.grid(row=0, padx=5,pady=5,sticky=tk.NSEW)
         recv_text = tk.Text(f_data_rwin)
-        recv_text.grid(row=0, padx=5,pady=10,sticky=tk.NSEW)
+        recv_text.tag_config("tag1", foreground="green")
+        recv_text.grid(row=0, column = 0,padx=5,pady=10,sticky=tk.NSEW)
+        scroll = tk.Scrollbar(f_data_rwin)
+        scroll.grid(row=0,column = 1,sticky=tk.NS)
+        scroll.config(command=recv_text.yview)
+        recv_text.config(yscrollcommand=scroll.set)
         f_data_rwin.rowconfigure(0, weight=1)
         f_data_rwin.columnconfigure(0, weight=1)
 

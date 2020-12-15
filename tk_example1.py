@@ -4,8 +4,8 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import serialport
 
-def clickme(event):
-    print(number.get())
+def clickme():
+    print(recv_text.get())
 
 win=tk.Tk()
 win.title("CommunicationTool")
@@ -24,11 +24,13 @@ comSpiner['values'] = ('5','6','7','8')
 comSpiner.current(0)
 #comSpiner.bind('<<ComboboxSelected>>', clickme)
 
-comSpiner.grid(row=0,column=1,sticky=tk.EW)
+comSpiner.grid(row=0,column=0,sticky=tk.EW)
 setFrame.columnconfigure(1, weight=1)
 #global refrashButton
-refrashButton = ttk.Button(setFrame,text="Refresh").grid(row=0,column=2,sticky=tk.W)
+refrashButton = ttk.Button(setFrame,text="Refresh",command = clickme).grid(row=0,column=1,sticky=tk.W)
 
+recv_text = tk.Text(setFrame)
+recv_text.grid(row=1, columnspan=2, padx=5,pady=10,sticky=tk.NSEW)
  
 '''
 inputLable = tk.Label(setFrame,text="Command: ").grid(row=1,column=0)
