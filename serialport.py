@@ -66,27 +66,4 @@ if __name__ == "__main__":
     fd1 = serial_ops()
     x = fd1.get_comports()
     print(x)
-'''
-ser = serial.Serial("/dev/ttyUSB3",115200,timeout = 0)
-if ser.isOpen() == True:
-    print('com is open')
-    th=threading.Thread(target=recv_data,daemon=True,kwargs={"serialid":ser})
-    th.start()
-    while True:
-        str1 = input("Please input:")
-        if str1 == 'exit' :
-            break
-        else :
-            str1 += '\r'
-        ser.write(str1.encode('utf-8'))
-        time.sleep(0.2)
-    print('will close com')
-    ser.close()
-else :
-    print('not open')
-'''
-
-
-
-
 

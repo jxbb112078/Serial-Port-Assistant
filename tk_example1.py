@@ -28,9 +28,10 @@ comSpiner.grid(row=0,column=0,sticky=tk.EW)
 setFrame.columnconfigure(1, weight=1)
 #global refrashButton
 refrashButton = ttk.Button(setFrame,text="Refresh",command = clickme).grid(row=0,column=1,sticky=tk.W)
-
+chkb=tk.Checkbutton(setFrame,text = "convert",state = 'disabled')
+chkb.grid(row=1, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
 recv_text = tk.Text(setFrame)
-recv_text.grid(row=1, columnspan=2, padx=5,pady=10,sticky=tk.NSEW)
+recv_text.grid(row=2, columnspan=2, padx=5,pady=10,sticky=tk.NSEW)
  
 '''
 inputLable = tk.Label(setFrame,text="Command: ").grid(row=1,column=0)
