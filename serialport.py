@@ -5,7 +5,7 @@ import time
 import threading
 
 class serial_ops:
-    #s_config = {'port':0,'baudrate':0,'check_bit':0,'data_bit':0,'stop_bit':0,'flow_ctrl':0}
+
     def __init__(self):
         self.port = 'NONE'
         self.baudrate = 115200
@@ -14,7 +14,6 @@ class serial_ops:
         self.stop_bit = serial.STOPBITS_ONE
         self.flow_ctrl = 'NONE'
         self.ser = serial.Serial()
-        #self.s_config['port'] = 'NONE'
 
     def get_comports(self):
         temp = ''
@@ -23,7 +22,7 @@ class serial_ops:
         portlist = tuple([ str(i) for i in temp.split(',') ])
         portlist = portlist[0:-1]
         return portlist 
-#print(get_comports())
+
 
     def open_serial(self):
         if 'XON/XOFF' in self.flow_ctrl:
@@ -48,12 +47,11 @@ class serial_ops:
         self.ser.xonxoff = sfc
         self.ser.rtscts = hfc
         self.ser.dsrdtr = hfc
-        #self.ser.timeout = 1
         print('%s,%s,%d,%s,%d,%d' % (__name__ , self.port, self.baudrate,self.check_bit,self.data_bit,self.stop_bit))
-        #self.ser = serial.Serial(port=self.port,baudrate=self.baudrate,bytesize=self.data_bit,parity=self.check_bit,stopbits=self.stop_bit,xonxoff=sfc,rtscts=hfc)
 
         self.ser.open()
         #return self.ser
+        
     def close_serial(self):
         self.ser.close()
 
@@ -62,8 +60,5 @@ class serial_ops:
             rec_data = serialid.readline()
             if len(rec_data) != 0 :
                 print( str(rec_data, encoding = "utf-8"),end='')
-if __name__ == "__main__":
-    fd1 = serial_ops()
-    x = fd1.get_comports()
-    print(x)
+
 

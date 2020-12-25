@@ -21,8 +21,4 @@ class s_file:
         currtime = '%03d' % currtime
         strt = time.strftime("%Y%m%d%H%M%S", time.localtime())
         return str(strt) 
-if __name__ == "__main__":
-    x = s_file()
-    x.fd.write("fsdfsd\n\r\r")
-    x.fd.write("fsdfsd\n\r\r")
-    x.fd.close()
+

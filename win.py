@@ -18,11 +18,31 @@ def timestamp():
 class window:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('serial port debug by Rodney')
-        
+        self.root.title('serial port debug assistant')
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(1, weight=1)
-        
+        '''
+        There are 2 frames on root window. 
+        there are 3 sub-frames on left frame,2 sub-frames on right frame.
+        illustrate as below
+        --------------------------------------------
+        |                |                         |
+        |f_serial_setting|                         |
+        |                |                         |
+        |                |                         |
+        -----------------|      f_data_rwin        |
+        |                |                         |
+        |                |                         |
+        | f_recv_setting |                         |
+        |                |                         |
+        --------------------------------------------
+        |                |                         |
+        |                |                         |
+        |f_send_setting  |      f_data_swin        |
+        |                |                         |
+        --------------------------------------------
+        '''
+
         f_left = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #左边frame
         f_left.grid(row=0, column=0,stick=tk.NSEW)
         f_right = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #右边frame
@@ -34,20 +54,20 @@ class window:
         self.comport = serialport.serial_ops()  
         self.setting_area(f_left,self.comport)
         self.rtxt,self.stxt,self.sbutton = self.data_area(f_right)
-        self.default_value()
+        #self.default_value()
         threading.Thread(target=self.update_port,daemon=True).start()
-
-        #self.rtxt.insert("end", 'para'+'\r\n')
     
+    # Default setting of all of parameters
     def default_value(self):
         comport_select.current(0)
         bdr_setting.current(9)
         check_bit.current(0)
-        data_bit.current(0)
+        #data_bit.current(3)
         stop_bit.current(0)
         flow_ctrl.current(0)
         serial_status.set('open')
 
+    # To open a com port and start a receive thread
     def serial_act(self):
         # open serial port
         if serial_status.get() == 'open':
@@ -75,7 +95,7 @@ class window:
             else:
                 self.comport.check_bit = serial.PARITY_SPACE
             ser = self.comport.open_serial()
-            if app.comport.ser.isOpen() == True:
+            if self.comport.ser.isOpen() == True:
             #    print('com is open')
                 th=threading.Thread(target=self.recv_data,daemon=True)
                 th.start()
@@ -94,6 +114,7 @@ class window:
             
             self.comport.close_serial()
 
+    #Update serial device by specific period
     def update_port(self):
         while True:
             comport_select['value'] = self.comport.get_comports()
@@ -112,6 +133,7 @@ class window:
                 break
         return
 
+    #send the sepcificed file
     def file_trans(self):
         try:
             fd = open(selected_file, mode='r')
@@ -119,18 +141,19 @@ class window:
                 buf = fd.read(100)
                 if buf == '':
                     break
-                #print(buf)
                 self.comport.ser.write(buf.encode('utf-8'))
         finally:
             print('close file')
             fd.close()
 
+    # Be invoked when send buttion is clicked
     def send_command(self):
         if send_file.get() == 1:
             self.file_trans()
         else:
             self.send_data()
-
+ 
+    #Send data which is located in send frame
     def send_data(self):
         str1 = self.stxt.get('0.0','end')
         sendstr = ''
@@ -138,7 +161,6 @@ class window:
             sendstr = str1.encode()
         if send_at_mode.get() == 1:
             sendstr = str1[0:-1] + '\r'
-
         if send_periodic.get() == 1: #send data as a fix period
             delay = int(ptime.get())
             if self.send_flag == False:
@@ -167,7 +189,8 @@ class window:
                 self.sbutton['text'] = 'send'
         else:
             self.comport.ser.write(sendstr.encode('utf-8'))
-        
+
+    #This function is invoked by receive thread and display contents in receive frame
     def recv_data(self) :
         print('recv thread starting...')
         while True:
@@ -199,7 +222,7 @@ class window:
                 #self.rtxt.insert("end", str(rec_data, encoding = "utf-8"))
                 self.rtxt.see('end')
 
-
+    #Excute corresponding actions when the receive setting is changed
     def recv_update(self,para):
         if para == 'recv_dis':
             print('recv_dis')
@@ -221,19 +244,22 @@ class window:
                 fd.fd.close()
                 self.rtxt.configure(state='normal',bg='white')
         else:    
-            return 0
+            return 
 
+    #Close root window
     def main_closing(self):
         if recv_save_to_file.get() == 1:
             fd.fd.close()
         self.root.destroy()
-        
+
+    #Close popup window   
     def file_select_closing(self):
         send_file.set(0)
         top.destroy()
         self.stxt.delete(1.0,"end")
         self.stxt.configure(state='normal',bg='white')
 
+    #Excute corresponding actions when the send setting is changed
     def send_update(self,para):
         if para == 'send_dis':
             print(send_dis.get())
@@ -258,6 +284,7 @@ class window:
         else: 
             return 0
 
+    #Excute corresponding actions during file selecting
     def file_confirm(self):
         global selected_file
         selected_file = fpath.get()
@@ -269,6 +296,7 @@ class window:
         else:
             tkinter.messagebox.showwarning('Warning','This is not a file')
 
+    #To select a file that you would like to send.
     def select_file(self):
         print('select file')
         global top,fpath
@@ -280,13 +308,14 @@ class window:
         tk.Button(top,text= 'OK',width=5,command = self.file_confirm).grid(row=0,column=1,padx=5,pady=6,sticky=tk.E)
         top.protocol("WM_DELETE_WINDOW", self.file_select_closing)
 
+    #f_serial_setting frame
     def serial_setting(self,frame,cfg):
         global comport_select,serial_port
         global bdr_setting,baudrate
         global check_bit,parity
         global data_bit,bytesize
         global stop_bit,stopbits
-        global flow_ctrl,serial_status
+        global flow_ctrl,fctrl,serial_status
         serial_port = tk.StringVar()
         #print(serial_port.get())
         tk.Label(frame, text='serial port',bg='FloralWhite').grid(row=0, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
@@ -352,6 +381,7 @@ class window:
         serial_ctrl.grid(row=6,column=0,columnspan=2,pady=5,sticky=tk.S)
         # receive setting
 
+    #f_recv_setting frame
     def recv_setting(self,frame):
         global recv_dis,recv_log_mode,recv_line_feed,recv_hide_data,recv_save_to_file
         recv_dis = tk.IntVar()
@@ -368,7 +398,7 @@ class window:
         tk.Checkbutton(frame,text = "Hide recv data",bg='FloralWhite', variable = recv_hide_data,command = lambda:self.recv_update('recv_hide_data')).grid(row=3, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
         tk.Checkbutton(frame,text = "Save to file",bg='FloralWhite', variable = recv_save_to_file,command = lambda:self.recv_update('recv_save_to_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
 
-    # send setting
+    # f_send_setting frame
     def send_setting(self,frame):
         global send_dis,send_convert,send_at_mode,send_addtion,send_file,send_periodic,ptime
         global dis_rbt_0,dis_rbt_1,at_chk_bt,add_chk_bt,f_chk_bt,p_chk_bt,t_chk_et
@@ -401,7 +431,7 @@ class window:
         tk.Label(frame,bg='FloralWhite',text = 'ms').grid(row=5,column=2,sticky=tk.W)
         tk.Label(frame,bg='FloralWhite').grid(row=6,column=0,columnspan=3,sticky=tk.NS)
 
-    #setting area
+    #setting area, left frame
     def setting_area(self,frame,serial_cfg):
 
         f_serial_setting = tk.LabelFrame(frame,text='serial setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
@@ -415,11 +445,11 @@ class window:
         self.recv_setting(f_recv_setting)
         self.send_setting(f_send_setting)
 
+    #receive area, right frame
     def data_area(self,frame):
-        #receive area
         f_data_rwin = tk.LabelFrame(frame,text='Data receive',bg='FloralWhite',bd=4,relief=tk.RIDGE)
         f_data_rwin.grid(row=0, padx=5,pady=5,sticky=tk.NSEW)
-        recv_text = tk.Text(f_data_rwin)
+        recv_text = tk.Text(f_data_rwin,width = 2)
         recv_text.tag_config("tag1", foreground="green")
         recv_text.grid(row=0, column = 0,padx=5,pady=10,sticky=tk.NSEW)
         scroll = tk.Scrollbar(f_data_rwin)
@@ -440,8 +470,7 @@ class window:
         send_button.grid(row=0, column=1,sticky=tk.E)
         return recv_text,send_text,send_button
 
-
-app = window()
-
-app.root.protocol("WM_DELETE_WINDOW", app.main_closing)
-app.root.mainloop()
+if __name__ == "main":
+    app = window()
+    app.root.protocol("WM_DELETE_WINDOW", app.main_closing)
+    app.root.mainloop()
