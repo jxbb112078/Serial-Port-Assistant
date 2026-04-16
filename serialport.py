@@ -13,7 +13,8 @@ class serial_ops:
         self.data_bit = serial.EIGHTBITS
         self.stop_bit = serial.STOPBITS_ONE
         self.flow_ctrl = 'NONE'
-        self.ser = serial.Serial()
+        self.ser = serial.Serial(timeout=1)  # 设置 1 秒超时，避免阻塞
+        self.is_receiving = False  # 标志接收线程是否运行
 
     def get_comports(self):
         temp = ''
@@ -29,7 +30,7 @@ class serial_ops:
             sfc = True
         else:
             sfc = False
-        if 'RTS/CTS' in self.flow_ctrl:
+        if 'RTS/CTS' in self.flow_ctrl: 
             hfc = True
         else:
             hfc = False
@@ -44,6 +45,7 @@ class serial_ops:
         self.ser.bytesize = self.data_bit
         self.ser.parity = self.check_bit
         self.ser.stopbits = self.stop_bit
+        self.ser.timeout = 1  # 设置读取超时
         self.ser.xonxoff = sfc
         self.ser.rtscts = hfc
         self.ser.dsrdtr = hfc
@@ -53,7 +55,15 @@ class serial_ops:
         #return self.ser
         
     def close_serial(self):
-        self.ser.close()
+        """安全地关闭串口"""
+        try:
+            self.is_receiving = False  # 停止接收线程
+            time.sleep(0.1)  # 给接收线程反应时间
+            if self.ser.is_open:
+                self.ser.close()
+                print('Serial port closed successfully')
+        except Exception as e:
+            print(f'Error closing serial port: {e}')
 
     def recv_data(self,serialid) :
         while True:

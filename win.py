@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import tkinter as tk
-from tkinter import ttk
+# from tkinter import ttk
 import tkinter.messagebox
+from tkinter import filedialog
 import serialport
 import serial
 import time
 import threading
 import sf
 import os
+import ttkbootstrap as ttk
 
 def timestamp():
     currtime = int(time.time()*1000%1000)
@@ -17,8 +19,10 @@ def timestamp():
 
 class window:
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title('serial port debug assistant')
+        # self.root = tk.Tk()
+        #想要切换主题，修改theme值即可，有以下这么多的主题，自己尝试吧：['vista', 'classic', 'cyborg', 'journal', 'darkly', 'flatly', 'clam', 'alt', 'solar', 'minty', 'litera', 'united', 'xpnative', 'pulse', 'cosmo', 'lumen', 'yeti', 'superhero', 'winnative', 'sandstone', 'default']
+        self.root = ttk.Window(themename='superhero')
+        self.root.title('Serial port assistant')
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(1, weight=1)
         '''
@@ -43,9 +47,9 @@ class window:
         --------------------------------------------
         '''
 
-        f_left = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #左边frame
+        f_left = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #left frame
         f_left.grid(row=0, column=0,stick=tk.NSEW)
-        f_right = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #右边frame
+        f_right = tk.Frame(self.root,bg='FloralWhite',relief=tk.RIDGE) #right frame
         f_right.grid(row=0, column=1,sticky=tk.NSEW)
         f_left.rowconfigure(2, weight=1)
         f_right.rowconfigure(0, weight=1)
@@ -95,8 +99,9 @@ class window:
             else:
                 self.comport.check_bit = serial.PARITY_SPACE
             ser = self.comport.open_serial()
-            if self.comport.ser.isOpen() == True:
+            if self.comport.ser.is_open:  # 使用 is_open 属性代替 isOpen() 方法
             #    print('com is open')
+                self.comport.is_receiving = True  # 设置接收标志为 True
                 th=threading.Thread(target=self.recv_data,daemon=True)
                 th.start()
             else :
@@ -111,8 +116,8 @@ class window:
             data_bit['state'] = "readonly"
             stop_bit['state'] = "readonly"
             flow_ctrl['state'] = "readonly"
-            
-            self.comport.close_serial()
+                
+            self.comport.close_serial()  # 会先设置 is_receiving=False 并等待
 
     #Update serial device by specific period
     def update_port(self):
@@ -193,34 +198,45 @@ class window:
     #This function is invoked by receive thread and display contents in receive frame
     def recv_data(self) :
         print('recv thread starting...')
-        while True:
-            rec_data = self.comport.ser.readline()
-            if recv_hide_data.get() == 1: #doesn't display data in receive windows
-                continue
-            if len(rec_data) != 0 :
-                #print( 'recv len:%d\n %s' %(len(rec_data) ,str(rec_data, encoding = "utf-8")))
-                #str1 = rec_data+'\n'
-                log_timestamp = '['+timestamp()+']'
-                if recv_log_mode.get() == 1 : # log mode enable
-                    
-                    self.rtxt.insert("end", log_timestamp,'tag1')
-                    if recv_save_to_file.get() == 1:
-                        fd.fd.write(log_timestamp)
-                #else :
-                #print(str(rec_data, encoding = "utf-8").split('\r'))
-                if recv_dis.get() == 1: #HEX mode display
-                    for i in rec_data:
-                        print('0x{:02X} '.format(i))
-                        self.rtxt.insert("end", '0x{:02X} '.format(i))
-                    self.rtxt.insert("end", '\n')
-                else :
-                    for i in str(rec_data, encoding = "utf-8").split('\r'):
-                        if i != '' and i != '\r' :
-                            self.rtxt.insert("end", i)
-                            if recv_save_to_file.get() == 1:
-                                fd.fd.write(i)
-                #self.rtxt.insert("end", str(rec_data, encoding = "utf-8"))
-                self.rtxt.see('end')
+        while self.comport.is_receiving:  # 检查接收标志，安全退出
+            try:
+                # 检查串口是否打开
+                if not self.comport.ser.is_open:
+                    print('ERROR: Serial port is closed')
+                    break
+                
+                rec_data = self.comport.ser.readline()
+                if recv_hide_data.get() == 1: #doesn't display data in receive windows
+                    continue
+                if len(rec_data) != 0 :
+                    #print( 'recv len:%d\n %s' %(len(rec_data) ,str(rec_data, encoding = "utf-8")))
+                    #str1 = rec_data+'\n'
+                    log_timestamp = '['+timestamp()+']'
+                    if recv_log_mode.get() == 1 : # log mode enable
+                        
+                        self.rtxt.insert("end", log_timestamp,'tag1')
+                        if recv_save_to_file.get() == 1:
+                            fd.fd.write(log_timestamp)
+                    #else :
+                    #print(str(rec_data, encoding = "utf-8").split('\r'))
+                    if recv_dis.get() == 1: #HEX mode display
+                        for i in rec_data:
+                            # print('0x{:02X} '.format(i))
+                            self.rtxt.insert("end", '0x{:02X} '.format(i))
+                        self.rtxt.insert("end", '\n')
+                    else :
+                        for i in str(rec_data, encoding = "utf-8").split('\r'):
+                            if i != '' and i != '\r' :
+                                self.rtxt.insert("end", i)
+                                if recv_save_to_file.get() == 1:
+                                    fd.fd.write(i)
+                    #self.rtxt.insert("end", str(rec_data, encoding = "utf-8"))
+                    self.rtxt.see('end')
+            except Exception as e:
+                if self.comport.is_receiving:  # 仅当串口应该打开时打印错误
+                    print(f'ERROR in recv_data: {type(e).__name__}: {e}')
+                break  # 安全退出接收线程
+        print('recv thread stopped')
 
     #Excute corresponding actions when the receive setting is changed
     def recv_update(self,para):
@@ -237,17 +253,22 @@ class window:
             global fd
             if recv_save_to_file.get() == 1:
                 print("open file")
-                self.rtxt.insert("end", 'save to file...\n')
-                self.rtxt.configure(state='disabled',bg='lightgrey')
                 fd = sf.s_file()
+                self.rtxt.insert("end", 'Will save log to file: ' + fd.fname + '\n')
+                # self.rtxt.configure(state='disabled')
+                
             else :
                 fd.fd.close()
-                self.rtxt.configure(state='normal',bg='white')
+                self.rtxt.configure(state='normal')
         else:    
             return 
 
     #Close root window
     def main_closing(self):
+        # 优雅地关闭串口
+        if self.comport.ser.is_open:
+            self.comport.close_serial()
+        
         if recv_save_to_file.get() == 1:
             fd.fd.close()
         self.root.destroy()
@@ -257,7 +278,7 @@ class window:
         send_file.set(0)
         top.destroy()
         self.stxt.delete(1.0,"end")
-        self.stxt.configure(state='normal',bg='white')
+        self.stxt.configure(state='normal')
 
     #Excute corresponding actions when the send setting is changed
     def send_update(self,para):
@@ -276,7 +297,7 @@ class window:
                 print(top)
                 if top != '':
                     top.destroy()
-                self.stxt.configure(state='normal',bg='white')
+                self.stxt.configure(state='normal',fg='white')
                 self.stxt.delete(0.0,tk.END)
                 
         elif para == 'send_periodic':
@@ -292,10 +313,14 @@ class window:
             top.destroy()
             print(selected_file)
             self.stxt.insert("end", 'Ready to send file \n'+selected_file)
-            self.stxt.configure(state='disabled',bg='lightgrey')
+            self.stxt.configure(state='disabled',fg='gray')
         else:
             tkinter.messagebox.showwarning('Warning','This is not a file')
-
+    def browse_file(self):
+        global fpath
+        file_path = filedialog.askopenfilename(initialdir=os.getcwd(), title='Select a file')
+        if file_path:
+            fpath.set(file_path)
     #To select a file that you would like to send.
     def select_file(self):
         print('select file')
@@ -305,7 +330,9 @@ class window:
         fpath = tk.StringVar()
         fpath.set(os.getcwd()+'/')
         tk.Entry(top,textvariable=fpath,width = 64,bd = 2).grid(row=0,column=0,padx=5,pady=6,sticky=tk.E)
-        tk.Button(top,text= 'OK',width=5,command = self.file_confirm).grid(row=0,column=1,padx=5,pady=6,sticky=tk.E)
+        tk.Button(top,text= 'Browse',width=5,command = self.browse_file).grid(row=1,column=0,padx=5,pady=6,sticky=tk.E)
+        tk.Button(top,text= 'OK',width=5,command = self.file_confirm).grid(row=1,column=1,padx=5,pady=6,sticky=tk.E)
+        top.columnconfigure(0, weight=1)
         top.protocol("WM_DELETE_WINDOW", self.file_select_closing)
 
     #f_serial_setting frame
@@ -318,27 +345,26 @@ class window:
         global flow_ctrl,fctrl,serial_status
         serial_port = tk.StringVar()
         #print(serial_port.get())
-        tk.Label(frame, text='serial port',bg='FloralWhite').grid(row=0, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
+        tk.Label(frame, text='Serial port',bg='FloralWhite').grid(row=0, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
         comport_select=ttk.Combobox(frame,textvariable=serial_port,width=15)
         comport_select['value'] = cfg.get_comports()
         comport_select['state'] = "readonly"
         comport_select.current(0)
         #print(serial_port.get())
-        #comport_select.bind("<<ComboboxSelected>>",self.test)  #事件的绑定
+        #comport_select.bind("<<ComboboxSelected>>",self.test)  #
         comport_select.grid(row=0, column=1,padx=5,sticky=tk.E)
 
         baudrate = tk.IntVar()
-        tk.Label(frame, text='baud rate',bg='FloralWhite').grid(row=1, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
-        bdr_setting = ttk.Combobox(frame,textvariable=baudrate,width=15)
-        bdr_setting['value'] = (1200,2400,4800,9600,14400,19200,38400,56000,57600,115200)
+        ttk.Label(frame, text='Baud rate').grid(row=1, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
+        bdr_setting = ttk.Combobox(frame,textvariable=baudrate,width=15,height=8)
+        bdr_setting['value'] = (1200,2400,4800,9600,14400,19200,38400,56000,57600,115200,128000,230400,256000,460800,921600,1000000)
         #bdr_setting['state'] = "readonly"
         bdr_setting.current(9)
         #bdr_setting.bind("<<ComboboxSelected>>",self.test)
-        
         bdr_setting.grid(row=1, column=1,padx=5,sticky=tk.E)
 
         parity = tk.StringVar()
-        tk.Label(frame, text='check bit',bg='FloralWhite').grid(row=2, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
+        ttk.Label(frame, text='Check bit').grid(row=2, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
         check_bit = ttk.Combobox(frame,textvariable=parity,width=15)
         check_bit['value'] = ('NONE','EVEN','ODD','MARK','SPACE')
         check_bit['state'] = "readonly"
@@ -348,7 +374,7 @@ class window:
         check_bit.grid(row=2, column=1,padx=5,sticky=tk.E)
 
         bytesize = tk.IntVar()
-        tk.Label(frame, text='data bit',bg='FloralWhite').grid(row=3, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
+        tk.Label(frame, text='Data bit',bg='FloralWhite').grid(row=3, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
         data_bit = ttk.Combobox(frame,textvariable=bytesize,width=15)
         data_bit['value'] = ('5','6','7','8')
         data_bit['state'] = "readonly"
@@ -358,7 +384,7 @@ class window:
         data_bit.grid(row=3, column=1,padx=5,sticky=tk.E)
 
         stopbits = tk.IntVar()
-        tk.Label(frame, text='stop bit',bg='FloralWhite').grid(row=4, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
+        tk.Label(frame, text='Stop bit',bg='FloralWhite').grid(row=4, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
         stop_bit = ttk.Combobox(frame,textvariable=stopbits,width=15)
         stop_bit['value'] = ('1','1.5','2')
         stop_bit['state'] = "readonly"
@@ -367,7 +393,7 @@ class window:
         stop_bit.grid(row=4, column=1,padx=5,sticky=tk.E)
 
         fctrl = tk.StringVar()
-        tk.Label(frame, text='flow control',bg='FloralWhite').grid(row=5, column=0,padx=5,pady=3,sticky=tk.N+tk.S+tk.W)
+        tk.Label(frame, text='Flow control',bg='FloralWhite').grid(row=5, column=0,padx=14,pady=3,sticky=tk.N+tk.S+tk.W)
         flow_ctrl = ttk.Combobox(frame,textvariable=fctrl,width=15)
         flow_ctrl['value'] = ('NONE','XON/XOFF','RTS/CTS','DTR/DSR','RTS/CTS/XON/XOFF','DTR/DSR/XON/XOFF')
         flow_ctrl['state'] = "readonly"
@@ -378,7 +404,7 @@ class window:
         serial_status = tk.StringVar()
         serial_status.set('open')
         serial_ctrl = ttk.Button(frame,textvariable= serial_status,width=15,command = self.serial_act)
-        serial_ctrl.grid(row=6,column=0,columnspan=2,pady=5,sticky=tk.S)
+        serial_ctrl.grid(row=6,column=0,columnspan=2,pady=10,sticky=tk.N+tk.S)
         # receive setting
 
     #f_recv_setting frame
@@ -391,12 +417,12 @@ class window:
         recv_line_feed = tk.IntVar()
         recv_hide_data = tk.IntVar()
         recv_save_to_file = tk.IntVar()
-        tk.Radiobutton(frame, variable=recv_dis, bg='FloralWhite',value='0', text='ASCII',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=0,padx=14,pady=5,sticky=tk.E+tk.W)
-        tk.Radiobutton(frame, variable=recv_dis,bg='FloralWhite', value='1', text='HEX',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=1,padx=14,sticky=tk.E+tk.W)
-        tk.Checkbutton(frame,text = "log mode",bg='FloralWhite', variable = recv_log_mode,command = lambda:self.recv_update('recv_log_mode')).grid(row=1, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "auto line feed",bg='FloralWhite', variable = recv_line_feed,command = lambda:self.recv_update('recv_line_feed')).grid(row=2, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "Hide recv data",bg='FloralWhite', variable = recv_hide_data,command = lambda:self.recv_update('recv_hide_data')).grid(row=3, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
-        tk.Checkbutton(frame,text = "Save to file",bg='FloralWhite', variable = recv_save_to_file,command = lambda:self.recv_update('recv_save_to_file')).grid(row=4, column=0,padx=5,pady=3,columnspan=2,sticky=tk.W)
+        ttk.Radiobutton(frame, variable=recv_dis,width=12,value='0', text='ASCII',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=0,padx=14,pady=6,sticky=tk.E+tk.W)
+        ttk.Radiobutton(frame, variable=recv_dis, value='1', text='HEX',command = lambda:self.recv_update('recv_dis')).grid(row=0, column=1,padx=14,pady=6,sticky=tk.E+tk.W)
+        ttk.Checkbutton(frame,text = "Log mode", variable = recv_log_mode,command = lambda:self.recv_update('recv_log_mode')).grid(row=1, column=0,padx=14,pady=6,columnspan=2,sticky=tk.W)
+        ttk.Checkbutton(frame,text = "Auto line feed", variable = recv_line_feed,command = lambda:self.recv_update('recv_line_feed')).grid(row=2, column=0,padx=14,pady=6,columnspan=2,sticky=tk.W)
+        ttk.Checkbutton(frame,text = "Hide recv data", variable = recv_hide_data,command = lambda:self.recv_update('recv_hide_data')).grid(row=3, column=0,padx=14,pady=6,columnspan=2,sticky=tk.W)
+        ttk.Checkbutton(frame,text = "Save to file", variable = recv_save_to_file,command = lambda:self.recv_update('recv_save_to_file')).grid(row=4, column=0,padx=14,pady=6,columnspan=2,sticky=tk.W)
 
     # f_send_setting frame
     def send_setting(self,frame):
@@ -413,34 +439,35 @@ class window:
         ptime = tk.StringVar()
         ptime.set('500')
         #send_mode.set('1')
-        dis_rbt_0 = tk.Radiobutton(frame, variable=send_dis,bg='FloralWhite', value='0', text='ASCII',command = lambda:self.send_update('send_dis'))
-        dis_rbt_0.grid(row=0, column=0,padx=14,sticky=tk.E+tk.W)
-        dis_rbt_1 = tk.Radiobutton(frame, variable=send_dis,bg='FloralWhite', value='1', text='HEX',command = lambda:self.send_update('send_dis'))
-        dis_rbt_1.grid(row=0, column=1,padx=14,columnspan=2,sticky=tk.E+tk.W)
+        dis_rbt_0 = ttk.Radiobutton(frame, variable=send_dis, value='0', text='ASCII',command = lambda:self.send_update('send_dis'))
+        dis_rbt_0.grid(row=0, column=0,padx=14,pady=6,sticky=tk.E+tk.W)
+        dis_rbt_1 = ttk.Radiobutton(frame, variable=send_dis, value='1', text='HEX',command = lambda:self.send_update('send_dis'))
+        dis_rbt_1.grid(row=0, column=1,padx=14,pady=6,columnspan=2,sticky=tk.E+tk.W)
         #tk.Checkbutton(frame,text = "convert",bg='FloralWhite', variable = send_convert,command = lambda:self.send_update('send_convert')).grid(row=1, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        at_chk_bt=tk.Checkbutton(frame,text = "AT mode",bg='FloralWhite', variable = send_at_mode,command = lambda:self.send_update('send_at_mode'))
-        at_chk_bt.grid(row=2, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        add_chk_bt=tk.Checkbutton(frame,text = "add addtion",bg='FloralWhite', variable = send_addtion,command = lambda:self.send_update('send_addtion'))
-        add_chk_bt.grid(row=3, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        f_chk_bt=tk.Checkbutton(frame,text = "send from file",bg='FloralWhite', variable = send_file,command = lambda:self.send_update('send_file'))
-        f_chk_bt.grid(row=4, column=0,padx=5,pady=3,columnspan=3,sticky=tk.W)
-        p_chk_bt=tk.Checkbutton(frame,text = "period",bg='FloralWhite', variable = send_periodic,command = lambda:self.send_update('send_periodic'))
-        p_chk_bt.grid(row=5, column=0,padx=5,pady=3,sticky=tk.W)
-        t_chk_et=tk.Entry(frame,textvariable=ptime,width = 5)
-        t_chk_et.grid(row=5,column=1,sticky=tk.E)
-        tk.Label(frame,bg='FloralWhite',text = 'ms').grid(row=5,column=2,sticky=tk.W)
-        tk.Label(frame,bg='FloralWhite').grid(row=6,column=0,columnspan=3,sticky=tk.NS)
+        at_chk_bt=ttk.Checkbutton(frame,text = "AT mode", variable = send_at_mode,command = lambda:self.send_update('send_at_mode'))
+        at_chk_bt.grid(row=2, column=0,padx=14,pady=6,columnspan=3,sticky=tk.W)
+        add_chk_bt=ttk.Checkbutton(frame,text = "Add addtion", variable = send_addtion,command = lambda:self.send_update('send_addtion'))
+        add_chk_bt.grid(row=3, column=0,padx=14,pady=6,columnspan=3,sticky=tk.W)
+        f_chk_bt=ttk.Checkbutton(frame,text = "Send from file", variable = send_file,command = lambda:self.send_update('send_file'))
+        f_chk_bt.grid(row=4, column=0,padx=14,pady=6,columnspan=3,sticky=tk.W)
+        p_chk_bt=ttk.Checkbutton(frame,text = "Period", width=12,variable = send_periodic,command = lambda:self.send_update('send_periodic'))
+        p_chk_bt.grid(row=5, column=0,padx=14,pady=6,sticky=tk.W)
+        t_chk_et=ttk.Entry(frame,textvariable=ptime,width = 6)
+        t_chk_et.grid(row=5,column=1,padx=2,sticky=tk.E)
+        ttk.Label(frame,text = 'ms').grid(row=5,column=2,sticky=tk.W)
+        # ttk.Label(frame,).grid(row=6,column=0,columnspan=3,sticky=tk.NS)
 
     #setting area, left frame
     def setting_area(self,frame,serial_cfg):
 
-        f_serial_setting = tk.LabelFrame(frame,text='serial setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
-        f_serial_setting.grid(row=0, column=0,pady=5,ipadx=5,ipady=5,sticky=tk.NSEW)
-        f_recv_setting = tk.LabelFrame(frame,text='receive setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
-        f_recv_setting.grid(row=1, column=0,pady=5,ipadx=5,ipady=5,sticky=tk.NSEW)
-        f_send_setting = tk.LabelFrame(frame,text='send setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
-        f_send_setting.grid(row=2, column=0,pady=5,ipadx=5,ipady=5,sticky=tk.NSEW)
+        f_serial_setting = tk.LabelFrame(frame,text='Serial setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
+        f_serial_setting.grid(row=0, column=0,pady=5,padx=5,ipadx=4,ipady=5,sticky=tk.NSEW)
+        f_recv_setting = tk.LabelFrame(frame,text='Receive setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
+        f_recv_setting.grid(row=1, column=0,pady=5,padx=5,ipadx=14,ipady=5,sticky=tk.NSEW)
+        f_send_setting = tk.LabelFrame(frame,text='Send setting',bg='FloralWhite',bd=4,relief=tk.RIDGE)
+        f_send_setting.grid(row=2, column=0,pady=5,padx=5,ipadx=14,ipady=5,sticky=tk.NSEW)
         f_send_setting.rowconfigure(6, weight=1)
+        # f_send_setting.columnconfigure(1, weight=1)
         self.serial_setting(f_serial_setting,serial_cfg)
         self.recv_setting(f_recv_setting)
         self.send_setting(f_send_setting)
@@ -456,6 +483,7 @@ class window:
         scroll.grid(row=0,column = 1,sticky=tk.NS)
         scroll.config(command=recv_text.yview)
         recv_text.config(yscrollcommand=scroll.set)
+        recv_text.bind('<Key>', lambda e: 'break')
         f_data_rwin.rowconfigure(0, weight=1)
         f_data_rwin.columnconfigure(0, weight=1)
 

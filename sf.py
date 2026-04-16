@@ -4,14 +4,15 @@ import time
 
 class s_file:
     def __init__(self):
-        if os.path.exists('log') == True:
+        current_dir = os.getcwd()
+        if os.path.exists(current_dir + '/log') == True:
             print('log is exist')
-            if os.path.isfile('log') == True:
-                os.mkdir('log')
+            if os.path.isfile(current_dir + '/log') == True:
+                os.mkdir(current_dir + '/log')
         else:
-            os.mkdir('log')
-            
-        self.fd = open('log/'+self.timestamp()+'.log',mode="w")
+            os.mkdir(current_dir + '/log')
+        self.fname = current_dir + '/log/' + self.timestamp()+'.log'    
+        self.fd = open(self.fname,mode="w")
 
     def s_write(self,str1):
         self.fd.write(str1)
